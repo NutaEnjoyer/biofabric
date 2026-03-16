@@ -1,0 +1,1 @@
+-- См. migrations/v10_quarantine.sql

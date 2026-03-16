@@ -1,0 +1,29 @@
+{
+  "contracts": [
+    "Contract"
+  ],
+  "contract_parties": [
+    "ContractParty"
+  ],
+  "bank_guarantees": [
+    "BankGuarantee"
+  ],
+  "contract_risks": [
+    "ContractRisk"
+  ],
+  "contract_template_deviations": [
+    "ContractTemplateDeviation"
+  ],
+  "contract_workflow_bind": [
+    "ContractWorkflowBinding"
+  ],
+  "eis_export_queue": [
+    "EISExportQueueItem"
+  ],
+  "eis_export_log": [
+    "EISExportLogItem"
+  ],
+  "import_contracts_1c": [
+    "ImportStaging1C"
+  ]
+}

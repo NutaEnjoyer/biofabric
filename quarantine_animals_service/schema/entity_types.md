@@ -1,0 +1,2 @@
+- qa_record — запись учёта (qa_ledger). entity_id: qa:<ledger_id>
+- qa_import_job — задача импорта. entity_id: qa:import:<job_id>

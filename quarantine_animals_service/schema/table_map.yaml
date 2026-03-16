@@ -1,0 +1,9 @@
+qa_species: Species
+qa_directions: Direction
+qa_age_bins: AgeBin
+qa_mass_bins: MassBin
+qa_groups: Group
+qa_cohorts: Cohort
+qa_ledger: LedgerRecord
+qa_import_jobs: ImportJob
+qa_import_rows: ImportRow

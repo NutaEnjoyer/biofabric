@@ -1,0 +1,115 @@
+services:
+  # =============================================================================
+  # PostgreSQL
+  # =============================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: biofabric-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: biofabric
+      POSTGRES_PASSWORD: biofabric_secret
+      POSTGRES_DB: biofabric
+    ports:
+      - "6543:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U biofabric -d biofabric"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # =============================================================================
+  # Legal Service (API)
+  # =============================================================================
+  legal-service:
+    build:
+      context: ./legal_service_project
+      dockerfile: Dockerfile
+    container_name: biofabric-legal
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://biofabric:biofabric_secret@postgres:5432/biofabric
+    ports:
+      - "8100:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # =============================================================================
+  # Marketing Service (API)
+  # =============================================================================
+  marketing-service:
+    build:
+      context: ./marketing_service
+      dockerfile: Dockerfile
+    container_name: biofabric-marketing
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+asyncpg://biofabric:biofabric_secret@postgres:5432/biofabric
+      CORE_BASE_URL: http://legal-service:8001/v1/core
+      CORE_BEARER: internal
+      # Telegram: задать в .env или переменных окружения хоста
+      TG_BOT_TOKEN: ${TG_BOT_TOKEN:-}
+      TG_CHANNEL_ID: ${TG_CHANNEL_ID:-}
+      # VK: задать в .env или переменных окружения хоста
+      VK_GROUP_TOKEN: ${VK_GROUP_TOKEN:-}
+      VK_GROUP_ID: ${VK_GROUP_ID:-}
+    ports:
+      - "8101:8002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # =============================================================================
+  # Quarantine Animals Service
+  # =============================================================================
+  quarantine-service:
+    build:
+      context: ./quarantine_animals_service
+      dockerfile: Dockerfile
+    container_name: biofabric-quarantine
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://biofabric:biofabric_secret@postgres:5432/biofabric
+      CORE_BASE_URL: http://legal-service:8001/v1/core
+      CORE_BEARER: internal
+    ports:
+      - "8102:8003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # =============================================================================
+  # Procurement Service
+  # =============================================================================
+  procurement-service:
+    build:
+      context: ./tz_procurement_proof
+      dockerfile: Dockerfile
+    container_name: biofabric-procurement
+    restart: unless-stopped
+    ports:
+      - "8103:8004"
+
+  # =============================================================================
+  # Frontend (React + Vite → Nginx)
+  # =============================================================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: biofabric-frontend
+    restart: unless-stopped
+    ports:
+      - "3100:80"
+    depends_on:
+      - legal-service
+      - marketing-service
+      - quarantine-service
+      - procurement-service
+
+volumes:
+  postgres_data:

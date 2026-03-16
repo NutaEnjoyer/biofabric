@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir:*)",
+      "Bash(findstr:*)",
+      "Bash(docker compose build:*)",
+      "Bash(docker exec:*)",
+      "Bash(sleep 3:*)"
+    ]
+  }
+}

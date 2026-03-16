@@ -1,0 +1,22 @@
+entities:
+  mk_post:
+    table: mk_posts
+    pk: post_id
+    content_table: mk_post_contents
+  mk_source:
+    table: mk_sources
+    pk: source_id
+  mk_clipping:
+    table: mk_clippings
+    pk: clipping_id
+refdata:
+  directions: mk_directions
+  channels: mk_channels
+  topics: mk_topics
+  formats: mk_formats
+  statuses: mk_post_statuses
+views:
+  plan_summary: v_mk_plan_summary
+  calendar_density: v_mk_calendar_density
+  posts_due_3d: v_mk_posts_due_3d
+  post_docs: v_mk_post_docs

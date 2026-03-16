@@ -1,0 +1,1 @@
+-- Snapshot of marketing domain DDL (see migrations/v8_marketing.sql)

@@ -1,0 +1,1 @@
+- contracts.contract_no unique; roles customer|supplier|guarantor|other; deadlines via calendar_deadlines
