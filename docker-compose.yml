@@ -32,6 +32,8 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://biofabric:biofabric_secret@postgres:5432/biofabric
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
     ports:
       - "8100:8001"
     depends_on:
@@ -57,6 +59,9 @@ services:
       # VK: задать в .env или переменных окружения хоста
       VK_GROUP_TOKEN: ${VK_GROUP_TOKEN:-}
       VK_GROUP_ID: ${VK_GROUP_ID:-}
+      # OpenAI
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
     ports:
       - "8101:8002"
     depends_on:
@@ -78,6 +83,23 @@ services:
       CORE_BEARER: internal
     ports:
       - "8102:8003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # =============================================================================
+  # OKS Service (Капитальное строительство)
+  # =============================================================================
+  oks-service:
+    build:
+      context: ./oks_service
+      dockerfile: Dockerfile
+    container_name: biofabric-oks
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://biofabric:biofabric_secret@postgres:5432/biofabric
+    ports:
+      - "8104:8005"
     depends_on:
       postgres:
         condition: service_healthy
@@ -110,6 +132,7 @@ services:
       - marketing-service
       - quarantine-service
       - procurement-service
+      - oks-service
 
 volumes:
   postgres_data:

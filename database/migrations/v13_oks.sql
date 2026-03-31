@@ -264,6 +264,15 @@ WHERE g.is_overdue = true AND s.is_completed = false
 GROUP BY s.stage_owner_user_id;
 
 -- ------------------------------------------------
+-- 9b) Иерархия объектов и инициатор (доп. поля)
+-- ------------------------------------------------
+ALTER TABLE oks_objects ADD COLUMN IF NOT EXISTS parent_object_id BIGINT REFERENCES oks_objects(object_id);
+ALTER TABLE oks_objects ADD COLUMN IF NOT EXISTS initiator_user_id BIGINT REFERENCES app_users(user_id);
+ALTER TABLE oks_objects ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE oks_objects ADD COLUMN IF NOT EXISTS object_type TEXT;
+CREATE INDEX IF NOT EXISTS idx_oks_objects_parent ON oks_objects(parent_object_id);
+
+-- ------------------------------------------------
 -- 10) Фиксация применения миграции
 -- ------------------------------------------------
 INSERT INTO schema_migrations(version, description)

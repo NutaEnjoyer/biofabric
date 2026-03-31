@@ -5,10 +5,81 @@ SQL-операции для модуля юристов.
 from __future__ import annotations
 import json
 import uuid
+import logging
 from typing import List, Dict, Any, Optional, Tuple
 from psycopg import Connection
+from .. import config as cfg
+
+logger = logging.getLogger(__name__)
 
 ALLOWED_PARTY_ROLES = {"customer", "supplier", "guarantor", "other"}
+
+_ANALYSIS_SYSTEM = (
+    "Ты — юридический аналитик ERP-системы биофабрики. "
+    "Пишешь краткое профессиональное заключение по договору на русском языке. "
+    "Без вводных слов, без «Итак» или «В целом». Только факты и выводы."
+)
+
+_ANALYSIS_USER_TMPL = (
+    "{contract_ctx}\n\n"
+    "Данные анализа:\n"
+    "- Отклонений от шаблона договора: {deviations_count}\n"
+    "- Всего активных рисков: {risks_count}\n"
+    "- Критические риски (severity ≥ 4): {'есть' if has_critical else 'нет'}\n\n"
+    "Напиши краткое заключение (3–5 предложений): оцени договор, "
+    "выдели ключевые риски и дай конкретную рекомендацию юристу."
+)
+
+
+def _llm_analysis_summary(
+    contract_ctx: str,
+    deviations_count: int,
+    risks_count: int,
+    has_critical_risk: bool,
+) -> str:
+    """Генерирует текстовое заключение через OpenAI. При недоступности — структурный fallback."""
+    if not cfg.OPENAI_API_KEY:
+        return _fallback_summary(deviations_count, risks_count, has_critical_risk)
+
+    try:
+        from openai import OpenAI
+        client = OpenAI(api_key=cfg.OPENAI_API_KEY)
+        prompt = _ANALYSIS_USER_TMPL.format(
+            contract_ctx=contract_ctx,
+            deviations_count=deviations_count,
+            risks_count=risks_count,
+            has_critical=has_critical_risk,
+        )
+        resp = client.chat.completions.create(
+            model=cfg.OPENAI_MODEL,
+            messages=[
+                {"role": "system", "content": _ANALYSIS_SYSTEM},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.3,
+            max_tokens=512,
+        )
+        return (resp.choices[0].message.content or "").strip()
+    except Exception:
+        logger.exception("OpenAI недоступен при анализе договора, используем fallback")
+        return _fallback_summary(deviations_count, risks_count, has_critical_risk)
+
+
+def _fallback_summary(deviations_count: int, risks_count: int, has_critical_risk: bool) -> str:
+    parts = []
+    if deviations_count > 0:
+        parts.append(f"Найдено {deviations_count} отклонений от шаблона")
+    else:
+        parts.append("Отклонений от шаблона не обнаружено")
+
+    if has_critical_risk:
+        parts.append(f"Обнаружено критических рисков: {risks_count} — рекомендуется проверка")
+    elif risks_count > 0:
+        parts.append(f"Потенциальных рисков: {risks_count} — рекомендуется проверить")
+    else:
+        parts.append("Критичных рисков не выявлено")
+
+    return ". ".join(parts)
 
 
 class RequestsRepo:
@@ -721,21 +792,26 @@ class RequestsRepo:
         risks_row = cur.fetchone()
         risks_count = risks_row[0] if risks_row else 0
 
-        # Формируем резюме
-        parts = []
-        if deviations_count > 0:
-            parts.append(f"Найдено {deviations_count} отклонений от шаблона")
-        else:
-            parts.append("Отклонений от шаблона не обнаружено")
+        # Получаем данные договора для контекста LLM
+        cur.execute("""
+            SELECT title, type_code, status_code, amount_total, currency,
+                   sign_date, end_date, performance_due, payment_due
+            FROM contracts WHERE contract_id = %s
+        """, (contract_id,))
+        c = cur.fetchone()
+        contract_ctx = (
+            f"Договор №{contract_id}: {c[0]}, тип={c[1]}, статус={c[2]}, "
+            f"сумма={c[3]} {c[4]}, подписан={c[5]}, окончание={c[6]}, "
+            f"срок исполнения={c[7]}, срок оплаты={c[8]}."
+        ) if c else f"Договор №{contract_id}"
 
-        if has_critical_risk:
-            parts.append(f"Обнаружено критических рисков: {risks_count} — рекомендуется проверка")
-        elif risks_count > 0:
-            parts.append(f"Потенциальных рисков: {risks_count} — рекомендуется проверить")
-        else:
-            parts.append("Критичных рисков не выявлено")
-
-        summary_text = ". ".join(parts)
+        # Формируем резюме через LLM (с fallback на структурный текст)
+        summary_text = _llm_analysis_summary(
+            contract_ctx=contract_ctx,
+            deviations_count=deviations_count,
+            risks_count=risks_count,
+            has_critical_risk=has_critical_risk,
+        )
 
         # Создаём завершённую запись анализа
         cur.execute("""
