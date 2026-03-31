@@ -105,6 +105,25 @@ services:
         condition: service_healthy
 
   # =============================================================================
+  # Auth Service (аутентификация и управление пользователями)
+  # =============================================================================
+  auth-service:
+    build:
+      context: ./auth_service
+      dockerfile: Dockerfile
+    container_name: biofabric-auth
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://biofabric:biofabric_secret@postgres:5432/biofabric
+      JWT_SECRET: ${JWT_SECRET:-biofabric-jwt-secret-change-in-production}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+    ports:
+      - "8105:8006"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # =============================================================================
   # Procurement Service
   # =============================================================================
   procurement-service:
@@ -133,6 +152,7 @@ services:
       - quarantine-service
       - procurement-service
       - oks-service
+      - auth-service
 
 volumes:
   postgres_data:
